@@ -85,7 +85,9 @@ RUN pip install \
     numpy \
     plyfile \
     kornia \
-    timm
+    timm \
+    psutil \
+    packaging
 
 # Install pillow-simd (optimized PIL)
 RUN pip install pillow-simd
