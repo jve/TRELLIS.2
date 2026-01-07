@@ -29,6 +29,10 @@ ENV CUDA_HOME=/usr/local/cuda
 ENV PATH=${CUDA_HOME}/bin:${PATH}
 ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 
+# Set CUDA architectures for building extensions without GPU
+# Supports: V100(7.0), T4(7.5), A100(8.0), RTX30xx(8.6), RTX40xx/L4(8.9), H100(9.0)
+ENV TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6;8.9;9.0"
+
 # Environment variables for TRELLIS.2
 ENV OPENCV_IO_ENABLE_OPENEXR=1
 ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True

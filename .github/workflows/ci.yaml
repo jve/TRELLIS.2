@@ -93,34 +93,5 @@ jobs:
         run: ruff check --select=E,F,W --ignore=E501 trellis2/ || true
         continue-on-error: true
 
-  docker-build-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image (no push)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          tags: trellis2:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+  # Note: Docker build is handled by docker-build.yaml workflow
+  # which runs on PRs and pushes to main with path filters
