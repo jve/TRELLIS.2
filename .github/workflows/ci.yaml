@@ -96,6 +96,17 @@ jobs:
   docker-build-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -113,5 +124,3 @@ jobs:
           tags: trellis2:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # Only build first stage to test basic setup
-          target: ""
