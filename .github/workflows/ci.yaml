@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint-dockerfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+  lint-helm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Lint Helm chart
+        run: helm lint helm/trellis2
+
+      - name: Template validation
+        run: |
+          echo "Testing default values..."
+          helm template trellis2 helm/trellis2 > /dev/null
+
+          echo "Testing dev values..."
+          helm template trellis2 helm/trellis2 -f helm/trellis2/values-dev.yaml > /dev/null
+
+          echo "Testing production values..."
+          helm template trellis2 helm/trellis2 -f helm/trellis2/values-production.yaml > /dev/null
+
+          echo "Testing with GPU disabled..."
+          helm template trellis2 helm/trellis2 --set gpu.enabled=false > /dev/null
+
+          echo "Testing with ingress enabled..."
+          helm template trellis2 helm/trellis2 --set ingress.enabled=true > /dev/null
+
+          echo "Testing with HuggingFace token..."
+          helm template trellis2 helm/trellis2 --set huggingface.token=test > /dev/null
+
+          echo "All template validations passed!"
+
+  lint-yaml:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint YAML files
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: .github/workflows/
+          config_data: |
+            extends: default
+            rules:
+              line-length:
+                max: 200
+              truthy:
+                check-keys: false
+
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install linters
+        run: pip install ruff
+
+      - name: Lint Python code
+        run: ruff check --select=E,F,W --ignore=E501 trellis2/ || true
+        continue-on-error: true
+
+  docker-build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: trellis2:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Only build first stage to test basic setup
+          target: ""

@@ -4,6 +4,23 @@
 
 FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
+# Build arguments for versioning
+ARG VERSION=dev
+ARG BUILD_DATE
+ARG VCS_REF
+
+# OCI Image Labels
+LABEL org.opencontainers.image.title="TRELLIS.2" \
+      org.opencontainers.image.description="State-of-the-art 3D generative model for image-to-3D generation" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.source="https://github.com/microsoft/TRELLIS.2" \
+      org.opencontainers.image.url="https://microsoft.github.io/TRELLIS.2" \
+      org.opencontainers.image.documentation="https://github.com/microsoft/TRELLIS.2#readme" \
+      org.opencontainers.image.vendor="Microsoft" \
+      org.opencontainers.image.licenses="MIT"
+
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
