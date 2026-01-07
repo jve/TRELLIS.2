@@ -1,0 +1,202 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "trellis2.fullname" . }}
+  labels:
+    {{- include "trellis2.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "trellis2.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "trellis2.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "trellis2.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ include "trellis2.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if eq .Values.app.mode "custom" }}
+          {{- with .Values.app.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.app.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- else if eq .Values.app.mode "web" }}
+          command:
+            - python
+            - app.py
+          {{- else if eq .Values.app.mode "texturing" }}
+          command:
+            - python
+            - app_texturing.py
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.app.serverPort }}
+              protocol: TCP
+          env:
+            # Core environment variables
+            {{- range $key, $value := .Values.env }}
+            {{- if $value }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+            # Gradio configuration
+            - name: GRADIO_SERVER_NAME
+              value: {{ .Values.app.serverName | quote }}
+            - name: GRADIO_SERVER_PORT
+              value: {{ .Values.app.serverPort | quote }}
+            {{- if .Values.app.share }}
+            - name: GRADIO_SHARE
+              value: "true"
+            {{- end }}
+            # HuggingFace configuration
+            - name: HF_HOME
+              value: {{ .Values.huggingface.cacheDir | quote }}
+            - name: TRANSFORMERS_CACHE
+              value: "{{ .Values.huggingface.cacheDir }}/transformers"
+            - name: HF_DATASETS_CACHE
+              value: "{{ .Values.huggingface.cacheDir }}/datasets"
+            {{- if or .Values.huggingface.token .Values.huggingface.existingSecret }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "trellis2.huggingfaceSecretName" . }}
+                  key: {{ .Values.huggingface.existingSecretKey }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "trellis2.huggingfaceSecretName" . }}
+                  key: {{ .Values.huggingface.existingSecretKey }}
+            {{- end }}
+            # Extra environment variables
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.healthCheck.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.healthCheck.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.healthCheck.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.readinessProbe.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.modelCache.enabled }}
+            - name: model-cache
+              mountPath: {{ .Values.persistence.modelCache.mountPath }}
+            {{- end }}
+            {{- if .Values.persistence.output.enabled }}
+            - name: output
+              mountPath: {{ .Values.persistence.output.mountPath }}
+            {{- end }}
+            # Shared memory for PyTorch DataLoader
+            - name: dshm
+              mountPath: /dev/shm
+            {{- with .Values.persistence.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        {{- if .Values.persistence.modelCache.enabled }}
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: {{ include "trellis2.modelCachePvcName" . }}
+        {{- end }}
+        {{- if .Values.persistence.output.enabled }}
+        - name: output
+          persistentVolumeClaim:
+            claimName: {{ include "trellis2.outputPvcName" . }}
+        {{- end }}
+        # Shared memory volume for PyTorch
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+        {{- with .Values.persistence.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.gpu.enabled }}
+      {{- if .Values.gpu.type }}
+      nodeSelector:
+        {{- with .Values.nodeSelector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        gpu-type: {{ .Values.gpu.type }}
+      {{- end }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

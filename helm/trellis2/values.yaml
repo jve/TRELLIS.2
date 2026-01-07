@@ -1,0 +1,288 @@
+# Default values for trellis2
+# This is a YAML-formatted file.
+
+# -- Number of replicas (typically 1 for GPU workloads)
+replicaCount: 1
+
+image:
+  # -- Container image repository
+  repository: trellis2
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Image tag (defaults to Chart appVersion)
+  tag: ""
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+# - name: regcred
+
+# -- Override the name of the chart
+nameOverride: ""
+# -- Override the full name of the chart
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a service account
+  create: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- Name of the service account (auto-generated if not set)
+  name: ""
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod labels
+podLabels: {}
+
+# -- Pod security context
+podSecurityContext: {}
+  # fsGroup: 1000
+
+# -- Container security context
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  # -- Service type
+  type: ClusterIP
+  # -- Service port
+  port: 7860
+  # -- Node port (only used if type is NodePort)
+  nodePort: ""
+  # -- Service annotations
+  annotations: {}
+
+ingress:
+  # -- Enable ingress
+  enabled: false
+  # -- Ingress class name
+  className: ""
+  # -- Ingress annotations
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+  # -- Ingress hosts configuration
+  hosts:
+    - host: trellis2.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- TLS configuration
+  tls: []
+  #  - secretName: trellis2-tls
+  #    hosts:
+  #      - trellis2.local
+
+resources:
+  # -- Resource limits
+  limits:
+    # -- GPU limit (NVIDIA GPU required)
+    nvidia.com/gpu: 1
+    memory: 48Gi
+  # -- Resource requests
+  requests:
+    nvidia.com/gpu: 1
+    memory: 32Gi
+    cpu: 4
+
+# -- Node selector
+nodeSelector: {}
+  # cloud.google.com/gke-accelerator: nvidia-tesla-a100
+
+# -- Tolerations for GPU nodes
+tolerations: []
+  # - key: nvidia.com/gpu
+  #   operator: Exists
+  #   effect: NoSchedule
+
+# -- Affinity rules
+affinity: {}
+
+# GPU configuration
+gpu:
+  # -- Enable GPU support
+  enabled: true
+  # -- GPU type for scheduling (used in node selector if set)
+  type: ""
+  # -- Number of GPUs to request
+  count: 1
+
+# Environment configuration
+env:
+  # -- Enable OpenEXR support in OpenCV
+  OPENCV_IO_ENABLE_OPENEXR: "1"
+  # -- PyTorch CUDA memory allocation config
+  PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
+  # -- Attention backend (flash-attn or xformers)
+  ATTN_BACKEND: ""
+  # -- CUDA visible devices
+  CUDA_VISIBLE_DEVICES: ""
+
+# -- Extra environment variables (list format)
+extraEnv: []
+  # - name: MY_VAR
+  #   value: "my-value"
+  # - name: SECRET_VAR
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: my-secret
+  #       key: secret-key
+
+# -- Environment variables from ConfigMaps or Secrets
+envFrom: []
+  # - configMapRef:
+  #     name: my-configmap
+  # - secretRef:
+  #     name: my-secret
+
+# Hugging Face configuration
+huggingface:
+  # -- Use existing secret for HF token
+  existingSecret: ""
+  # -- Key in the existing secret containing the token
+  existingSecretKey: "token"
+  # -- Hugging Face token (will be stored in a secret if set)
+  # Recommended: use existingSecret instead
+  token: ""
+  # -- Hugging Face cache directory
+  cacheDir: /root/.cache/huggingface
+
+# Model configuration
+model:
+  # -- Model identifier on Hugging Face Hub
+  name: "microsoft/TRELLIS.2-4B"
+  # -- Pre-download model during init (requires HF token for private models)
+  preload: false
+
+# Persistence configuration
+persistence:
+  # Model cache storage
+  modelCache:
+    # -- Enable model cache persistence
+    enabled: true
+    # -- Use existing PVC
+    existingClaim: ""
+    # -- Storage class (empty uses default)
+    storageClass: ""
+    # -- Access modes
+    accessModes:
+      - ReadWriteOnce
+    # -- Storage size (model is ~15GB)
+    size: 50Gi
+    # -- Mount path for model cache
+    mountPath: /root/.cache/huggingface
+    # -- Annotations for PVC
+    annotations: {}
+
+  # Output storage
+  output:
+    # -- Enable output persistence
+    enabled: false
+    # -- Use existing PVC
+    existingClaim: ""
+    # -- Storage class
+    storageClass: ""
+    # -- Access modes
+    accessModes:
+      - ReadWriteOnce
+    # -- Storage size
+    size: 20Gi
+    # -- Mount path for outputs
+    mountPath: /app/output
+    # -- Annotations for PVC
+    annotations: {}
+
+  # Extra volumes
+  extraVolumes: []
+    # - name: my-volume
+    #   persistentVolumeClaim:
+    #     claimName: my-pvc
+    # - name: my-secret-volume
+    #   secret:
+    #     secretName: my-secret
+
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /mnt/data
+    # - name: my-secret-volume
+    #   mountPath: /secrets
+    #   readOnly: true
+
+# Application configuration
+app:
+  # -- Application mode: "web" (Gradio UI), "api" (API server), or "custom"
+  mode: web
+  # -- Custom command (used when mode is "custom")
+  command: []
+  # -- Custom args (used when mode is "custom")
+  args: []
+  # -- Gradio server name (0.0.0.0 for external access)
+  serverName: "0.0.0.0"
+  # -- Gradio server port
+  serverPort: 7860
+  # -- Share via Gradio (creates public URL)
+  share: false
+
+# Health checks
+healthCheck:
+  # -- Enable liveness probe
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  # -- Enable readiness probe
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # -- Enable startup probe (recommended for slow-starting containers)
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    # Model download can take a while
+    failureThreshold: 30
+
+# Autoscaling (experimental - GPU workloads may not scale well)
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# -- Extra init containers
+initContainers: []
+
+# -- Extra sidecar containers
+extraContainers: []
+
+# ConfigMap for additional configuration files
+configMap:
+  # -- Create ConfigMap with additional config
+  create: false
+  # -- Data to include in ConfigMap
+  data: {}
+    # config.yaml: |
+    #   key: value
+
+# Secret for sensitive data
+secret:
+  # -- Create Secret
+  create: false
+  # -- Secret data (base64 encoded automatically)
+  data: {}
+    # api-key: my-secret-key

@@ -1,0 +1,55 @@
+# Development values for trellis2
+# Usage: helm install trellis2-dev ./helm/trellis2 -f ./helm/trellis2/values-dev.yaml
+
+replicaCount: 1
+
+image:
+  repository: trellis2
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+resources:
+  limits:
+    nvidia.com/gpu: 1
+    memory: 32Gi
+  requests:
+    nvidia.com/gpu: 1
+    memory: 24Gi
+    cpu: 4
+
+# Use NodePort for easy local access
+service:
+  type: NodePort
+  port: 7860
+  nodePort: 30786
+
+# Disable ingress for dev
+ingress:
+  enabled: false
+
+# Store HF token directly (NOT for production!)
+huggingface:
+  token: ""  # Set via --set huggingface.token=hf_xxx
+
+# Enable model cache only
+persistence:
+  modelCache:
+    enabled: true
+    size: 50Gi
+  output:
+    enabled: false
+
+# Relaxed health checks for development
+healthCheck:
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    failureThreshold: 60
+  livenessProbe:
+    enabled: false
+  readinessProbe:
+    enabled: false
+
+app:
+  mode: web
+  share: false
