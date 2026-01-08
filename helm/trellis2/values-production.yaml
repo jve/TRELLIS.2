@@ -1,0 +1,95 @@
+# Production values for trellis2
+# Usage: helm install trellis2 ./helm/trellis2 -f ./helm/trellis2/values-production.yaml
+
+replicaCount: 1
+
+image:
+  repository: your-registry.com/trellis2
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets:
+  - name: registry-credentials
+
+resources:
+  limits:
+    nvidia.com/gpu: 1
+    memory: 48Gi
+  requests:
+    nvidia.com/gpu: 1
+    memory: 32Gi
+    cpu: 8
+
+# Use node selector for GPU nodes
+nodeSelector:
+  cloud.google.com/gke-accelerator: nvidia-tesla-a100
+  # OR for AWS:
+  # node.kubernetes.io/instance-type: p4d.24xlarge
+  # OR for Azure:
+  # kubernetes.azure.com/accelerator: nvidia
+
+tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+
+# Enable ingress for production
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: trellis2.your-domain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: trellis2-tls
+      hosts:
+        - trellis2.your-domain.com
+
+# Use existing secret for HuggingFace token
+huggingface:
+  existingSecret: huggingface-token
+  existingSecretKey: token
+
+# Enable persistence for production
+persistence:
+  modelCache:
+    enabled: true
+    storageClass: fast-ssd
+    size: 100Gi
+  output:
+    enabled: true
+    storageClass: standard
+    size: 50Gi
+
+# Production health check settings
+healthCheck:
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    failureThreshold: 60
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 120
+    periodSeconds: 60
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    failureThreshold: 3
+
+# Gradio settings for production
+app:
+  mode: web
+  serverName: "0.0.0.0"
+  serverPort: 7860
+  share: false

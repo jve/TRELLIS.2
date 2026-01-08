@@ -1,0 +1,57 @@
+TRELLIS.2 has been deployed!
+
+{{- if .Values.ingress.enabled }}
+Application URL(s):
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+Get the application URL by running these commands:
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "trellis2.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+Get the application URL by running these commands:
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        You can watch the status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "trellis2.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "trellis2.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+Get the application URL by running these commands:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "trellis2.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  echo "Visit http://127.0.0.1:{{ .Values.service.port }} to use TRELLIS.2"
+{{- end }}
+
+Important Notes:
+----------------
+1. GPU Requirements:
+   - TRELLIS.2 requires an NVIDIA GPU with at least 24GB VRAM
+   - Ensure your cluster has GPU nodes with the NVIDIA device plugin installed
+
+2. Model Download:
+   - The TRELLIS.2-4B model (~15GB) downloads automatically on first run
+   - This may take several minutes depending on your connection
+   - Model is cached in the persistent volume for subsequent runs
+
+3. Startup Time:
+   - Initial startup may take 2-5 minutes for model loading
+   - The startup probe is configured with a generous timeout
+
+{{- if not .Values.persistence.modelCache.enabled }}
+
+WARNING: Model cache persistence is disabled!
+         The model will be re-downloaded each time the pod restarts.
+         Enable persistence.modelCache.enabled for production use.
+{{- end }}
+
+{{- if .Values.huggingface.token }}
+
+NOTE: HuggingFace token is configured.
+      For production, consider using existingSecret instead of inline token.
+{{- end }}
+
+For more information, visit:
+  https://github.com/microsoft/TRELLIS.2
+  https://microsoft.github.io/TRELLIS.2

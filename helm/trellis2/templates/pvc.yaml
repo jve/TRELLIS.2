@@ -1,0 +1,45 @@
+{{- if and .Values.persistence.modelCache.enabled (not .Values.persistence.modelCache.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "trellis2.modelCachePvcName" . }}
+  labels:
+    {{- include "trellis2.labels" . | nindent 4 }}
+    app.kubernetes.io/component: model-cache
+  {{- with .Values.persistence.modelCache.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.modelCache.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.modelCache.size }}
+  {{- if .Values.persistence.modelCache.storageClass }}
+  storageClassName: {{ .Values.persistence.modelCache.storageClass }}
+  {{- end }}
+{{- end }}
+---
+{{- if and .Values.persistence.output.enabled (not .Values.persistence.output.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "trellis2.outputPvcName" . }}
+  labels:
+    {{- include "trellis2.labels" . | nindent 4 }}
+    app.kubernetes.io/component: output
+  {{- with .Values.persistence.output.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.output.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.output.size }}
+  {{- if .Values.persistence.output.storageClass }}
+  storageClassName: {{ .Values.persistence.output.storageClass }}
+  {{- end }}
+{{- end }}
