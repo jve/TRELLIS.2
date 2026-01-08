@@ -3,12 +3,9 @@ name: Package and Push Helm Chart
 on:
   push:
     branches:
-      - main
+      - '**'
     tags:
       - 'v*'
-    paths:
-      - 'helm/**'
-      - '.github/workflows/helm-release.yaml'
   pull_request:
     branches:
       - main
@@ -70,23 +67,27 @@ jobs:
       - name: Determine versions
         id: version
         run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+
           if [[ "${{ github.event.inputs.version }}" != "" ]]; then
             # Use manual version input
             CHART_VERSION="${{ github.event.inputs.version }}"
+            APP_VERSION="${{ github.event.inputs.version }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             # Extract version from tag (v1.0.0 -> 1.0.0)
             CHART_VERSION="${GITHUB_REF#refs/tags/v}"
-          else
-            # Development version: 0.0.0-dev+sha
-            SHORT_SHA=$(git rev-parse --short HEAD)
+            APP_VERSION="${CHART_VERSION}"
+          elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
+            # Main branch: 0.0.0-dev.{sha}
             CHART_VERSION="0.0.0-dev.${SHORT_SHA}"
-          fi
-
-          # App version follows chart version for releases, or uses git SHA
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            APP_VERSION="${GITHUB_REF#refs/tags/v}"
+            APP_VERSION="dev-${SHORT_SHA}"
           else
-            APP_VERSION="dev-$(git rev-parse --short HEAD)"
+            # Feature branches: 0.0.0-{branch}.{sha}
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            # Sanitize branch name for semver (replace / and _ with -)
+            BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-20)
+            CHART_VERSION="0.0.0-${BRANCH_SAFE}.${SHORT_SHA}"
+            APP_VERSION="${BRANCH_SAFE}-${SHORT_SHA}"
           fi
 
           echo "chart_version=${CHART_VERSION}" >> $GITHUB_OUTPUT
