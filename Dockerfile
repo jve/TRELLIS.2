@@ -129,7 +129,10 @@ WORKDIR /app
 COPY . /app/
 
 # Symlink system Eigen to where o-voxel expects it (git submodule not available in Docker context)
-RUN mkdir -p /app/o-voxel/third_party && ln -s /usr/include/eigen3 /app/o-voxel/third_party/eigen
+# Remove any empty submodule placeholder directory first
+RUN rm -rf /app/o-voxel/third_party/eigen \
+    && mkdir -p /app/o-voxel/third_party \
+    && ln -s /usr/include/eigen3 /app/o-voxel/third_party/eigen
 
 # Install o-voxel from local copy
 RUN pip install /app/o-voxel --no-build-isolation
