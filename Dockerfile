@@ -55,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     libopenexr-dev \
     openexr \
+    libeigen3-dev \
     python3.10 \
     python3.10-dev \
     python3.10-venv \
@@ -126,6 +127,9 @@ WORKDIR /app
 
 # Copy TRELLIS.2 source code
 COPY . /app/
+
+# Symlink system Eigen to where o-voxel expects it (git submodule not available in Docker context)
+RUN mkdir -p /app/o-voxel/third_party && ln -s /usr/include/eigen3 /app/o-voxel/third_party/eigen
 
 # Install o-voxel from local copy
 RUN pip install /app/o-voxel --no-build-isolation
